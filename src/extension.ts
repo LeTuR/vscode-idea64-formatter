@@ -2,7 +2,9 @@
 // Import the module and reference it with the alias vscode in your code below
 import cp = require('child_process');
 import path = require('path');
+import fs = require('fs');
 import * as vscode from 'vscode';
+import { worker } from 'cluster';
 
 export class IdeaDocumentFormattingEditProvider implements vscode.DocumentFormattingEditProvider {
 
@@ -13,7 +15,7 @@ export class IdeaDocumentFormattingEditProvider implements vscode.DocumentFormat
 	 * @param token 
 	 * @returns a formatted document
 	 */
-	public provideDocumentFormattingEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): Thenable<vscode.TextEdit[]> {
+	public provideDocumentFormattingEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): vscode.TextEdit[] {
 		return this.doFormatDocument(document, options, token);
 	}
 
@@ -24,31 +26,52 @@ export class IdeaDocumentFormattingEditProvider implements vscode.DocumentFormat
 	 * @param token 
 	 * @returns a formatted document
 	 */
-	private doFormatDocument(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): Thenable<vscode.TextEdit[]> {
-		return new Promise((resolve, rejects) => {
-			let file = document.fileName;
-			let tempFile = path.join(path.dirname(file), "___format___" + path.basename(file));
-			// vscode.window.showInformationMessage('Create temporary file ' + tempFile);
-			let wsedit = new vscode.WorkspaceEdit();
-			let filePath = vscode.Uri.file(tempFile);
-			wsedit.createFile(filePath, { ignoreIfExists: false });
-			vscode.workspace.applyEdit(wsedit);
+	private doFormatDocument(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): vscode.TextEdit[] {
 
-			let executable = "C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2021.1.3\\bin\\idea64.exe";
-			let args = ['format', tempFile];
+		vscode.window.showInformationMessage('formating file formated');
+		let orange = vscode.window.createOutputChannel("Orange");
 
-			// vscode.window.showInformationMessage("Filename is : " + file + "executable is : " + executable + "args are : " + args);
+		let date = new Date();
+		// Copy file into a temporary file for formatting
+		orange.appendLine(date + "Setting fileName");
+		let file = document.fileName;
+		let tempFile = path.join(path.dirname(file), "___format___" + path.basename(file));
+		orange.appendLine("Copy file");
+		let fileUri = vscode.Uri.file(file);
+		let tempFileUri = vscode.Uri.file(tempFile);
+		vscode.workspace.fs.copy(fileUri, tempFileUri, { overwrite: true });
 
-			let edits: vscode.TextEdit[] = [];
+		date = new Date();
+		orange.appendLine(date + "Run idea64 formatter");
+		let executable = "C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2021.1.3\\bin\\idea64.exe";
+		let args = ['format', tempFile];
+		cp.spawnSync(executable, args);
 
-			let child = cp.spawnSync(executable, args);
-			vscode.window.showInformationMessage('file formated');
-
-			// wsedit.deleteFile(filePath);
-			// vscode.workspace.applyEdit(wsedit);
-			return resolve(edits);
-
-		});
+		date = new Date();
+		orange.appendLine(date + "Read formatted file");
+		try {
+			let text = fs.readFileSync(tempFile, 'utf-8');
+			const firstLine = document.lineAt(0);
+			const lastLine = document.lineAt(document.lineCount - 1);
+			const textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
+	
+	
+			orange.appendLine(date + "Delete temp file");
+			const edit = new vscode.WorkspaceEdit();
+			edit.deleteFile(tempFileUri, { recursive: true, ignoreIfNotExists: true });
+			vscode.workspace.applyEdit(edit);
+	
+			orange.appendLine(text);
+	
+			date = new Date();
+			orange.appendLine(date + "Return TextEdit modifications");
+	
+			return [(vscode.TextEdit.replace(textRange, text))];
+		} catch (error) {
+			orange.appendLine("Error : " + error);
+		}
+		throw new Error("Could not format file");
+		
 	}
 
 }
