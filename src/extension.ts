@@ -28,56 +28,74 @@ export class IdeaDocumentFormattingEditProvider implements vscode.DocumentFormat
 	 */
 	private doFormatDocument(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): vscode.TextEdit[] {
 
-		vscode.window.showInformationMessage('formating file formated');
-		let orange = vscode.window.createOutputChannel("Orange");
-
 		let date = new Date();
+		vscode.window.showInformationMessage("Formating file... ");
+		let logWindow = vscode.window.createOutputChannel("idea64-format");
+
 		// Copy file into a temporary file for formatting
-		orange.appendLine(date + "Setting fileName");
 		let file = document.fileName;
 		let tempFile = path.join(path.dirname(file), "___format___" + path.basename(file));
-		orange.appendLine("Copy file");
 		let fileUri = vscode.Uri.file(file);
 		let tempFileUri = vscode.Uri.file(tempFile);
+		date = new Date();
+		logWindow.appendLine("[" + date + "] Create temporary file");
 		vscode.workspace.fs.copy(fileUri, tempFileUri, { overwrite: true });
-
-		date = new Date();
-		orange.appendLine(date + "Run idea64 formatter");
-		let executable = "C:\\Program Files\\JetBrains\\IntelliJ IDEA Community Edition 2021.1.3\\bin\\idea64.exe";
+		let config = vscode.workspace.getConfiguration("idea-format");
+		let executable = config.get<string>("idea-executable");
 		let args = ['format', tempFile];
-		cp.spawnSync(executable, args);
 
-		date = new Date();
-		orange.appendLine(date + "Read formatted file");
-		try {
-			let text = fs.readFileSync(tempFile, 'utf-8');
-			const firstLine = document.lineAt(0);
-			const lastLine = document.lineAt(document.lineCount - 1);
-			const textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
-	
-	
-			orange.appendLine(date + "Delete temp file");
-			const edit = new vscode.WorkspaceEdit();
-			edit.deleteFile(tempFileUri, { recursive: true, ignoreIfNotExists: true });
-			vscode.workspace.applyEdit(edit);
-	
-			orange.appendLine(text);
+		if (typeof executable === 'string') {
+			date = new Date();
+			logWindow.appendLine("[" + date + "] Starting ideda64 executable");
+			cp.execFileSync(executable, args);
 	
 			date = new Date();
-			orange.appendLine(date + "Return TextEdit modifications");
+			logWindow.appendLine("[" + date + "] End of ideda64 execution");
+			try {
+				let text = fs.readFileSync(tempFile, 'utf-8');
+				const firstLine = document.lineAt(0);
+				const lastLine = document.lineAt(document.lineCount - 1);
+				const textRange = new vscode.Range(firstLine.range.start, lastLine.range.end);
 	
-			return [(vscode.TextEdit.replace(textRange, text))];
-		} catch (error) {
-			orange.appendLine("Error : " + error);
+	
+				date = new Date();
+				logWindow.appendLine("[" + date + "] Deleting temporary file");
+				const edit = new vscode.WorkspaceEdit();
+				edit.deleteFile(tempFileUri, { recursive: false, ignoreIfNotExists: true });
+				vscode.workspace.applyEdit(edit);
+	
+	
+				date = new Date();
+				logWindow.appendLine("[" + date + "] Applying modification");
+				return [(vscode.TextEdit.replace(textRange, text))];
+			} catch (error) {
+				vscode.window.showInformationMessage("Error trying to format.");
+				date = new Date();
+				logWindow.appendLine("[" + date + "] Error while formatting");
+			}
+			throw new Error("Could not format file");
 		}
-		throw new Error("Could not format file");
-		
+		throw new Error("Could not get executable path");	
 	}
-
+	
 }
 
+let languages: string[] = [];
+for (let l of ['java', 'groovy', 'powershell', 'yaml', 'shell', 'bat']) {
+	let confKey = `language.${l}.enable`;
+	if (vscode.workspace.getConfiguration('idea-format').get(confKey)) {
+		languages.push(l);
+	}
+}
+
+const MODES: vscode.DocumentFilter[] = languages.map((language) => ({ language, scheme: 'file' }));
+
 export function activate(context: vscode.ExtensionContext) {
+
+	let availableLanguages = {};
 	let formatter = new IdeaDocumentFormattingEditProvider();
-	let mode = "java";
-	vscode.languages.registerDocumentFormattingEditProvider(mode, formatter);
+
+	MODES.forEach((mode) => {
+		context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider(mode, formatter));
+	});
 }

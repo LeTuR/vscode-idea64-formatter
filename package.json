@@ -6,26 +6,63 @@
 	"engines": {
 		"vscode": "^1.57.0"
 	},
+	"publisher": "LeTuR",
 	"categories": [
 		"Formatters"
 	],
 	"activationEvents": [
-        "onLanguage:java"
+        "onLanguage:java",
+		"onLanguage:groovy",
+		"onLanguage:powershell",
+		"onLanguage:yaml",
+		"onLanguage:shell",
+		"onLanguage:bat"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
-		"languages": [
-			{
-				"id": "foo-lang",
-				"aliases": [
-					"Foo"
-				],
-				"extensions": [
-					".foo"
-				]
+		"configuration":
+		{
+			"title": "Idea format configuration",
+			"properties": {
+				"idea-format.idea-executable" : {
+					"title": "string",
+					"default": "idea64",
+					"description": "idea64.exe executable path"
+				},
+				"idea-format.language.java.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable idea format for java"
+				},
+				"idea-format.language.groovy.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable idea format for groovy"
+				},
+				"idea-format.language.powershell.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable idea format for powershell"
+				},
+				"idea-format.language.yaml.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable idea format for java"
+				},
+				"idea-format.language.shell.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable idea format for java"
+				},
+				"idea-format.language.bat.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable idea format for java"
+				}
 			}
-		]
+		}
 	},
+	"icon": "idea-lama.png",
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
@@ -46,5 +83,9 @@
 		"mocha": "^8.4.0",
 		"typescript": "^4.3.2",
 		"vscode-test": "^1.5.2"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/LeTuR/vscode-idea64-formatter"
 	}
 }
